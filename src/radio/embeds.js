@@ -43,10 +43,19 @@ function announcementEmbed(title, message) {
 }
 
 function panelEmbed() {
-  return baseEmbed("📻 TRIBULATION RADIO", "Welcome to **Tribulation Radio** — your home for continuous radio entertainment.\n\nUse the buttons below to check the station or submit a song request.").addFields(
-    { name: "🟢 LIVE RADIO", value: "Join the **Tribulation Radio** voice channel when the station is live.", inline: false },
-    { name: "🎶 REQUESTS", value: "Use \`/request\` to send a song request to the radio team.", inline: false },
-    { name: "📢 UPDATES", value: "Radio announcements and station updates will be posted here.", inline: false }
+  return baseEmbed(
+    "📻 TRIBULATION RADIO • LIVE STATION",
+    "🔴 **WE ARE LIVE!**\n\n" +
+    "🎶 Welcome to **Tribulation Radio** — your home for music, entertainment, and nonstop broadcasting.\n\n" +
+    "🔊 **Join the 📻 Tribulation Radio voice channel to listen live.**\n\n" +
+    "🎵 Want to hear something specific? Submit a request with **/request**.\n\n" +
+    "💬 Hang out with the community in **#radio-chat** and stay connected with the station.\n\n" +
+    "📢 Stay tuned for station updates, special broadcasts, and announcements.\n\n" +
+    "**Thanks for tuning in!**"
+  ).addFields(
+    { name: "🟢 STATUS", value: "**LIVE • 24/7**", inline: true },
+    { name: "🎵 NOW PLAYING", value: "Automatically updated", inline: true },
+    { name: "🎶 REQUESTS", value: "Use **/request**", inline: true }
   );
 }
 
