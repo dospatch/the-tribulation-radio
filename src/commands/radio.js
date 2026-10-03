@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const config = require("../config");
 const { canControlRadio } = require("../permissions");
-const { announcementEmbed, panelEmbed, liveEmbed, offlineEmbed } = require("../radio/embeds");
+const { announcementEmbed, panelEmbed, liveEmbed, liveButtons, offlineEmbed } = require("../radio/embeds");
 
 const data = new SlashCommandBuilder()
   .setName("radio")
@@ -32,7 +32,7 @@ async function execute(interaction, radio) {
     await interaction.deferReply({ ephemeral: true });
     try {
       await radio.start();
-      if (announcementChannel) await announcementChannel.send({ embeds: [liveEmbed()] }).catch(() => {});
+      if (announcementChannel) await announcementChannel.send({ embeds: [liveEmbed()], components: [liveButtons()] }).catch(() => {});
       return interaction.editReply("Tribulation Radio is now LIVE.");
     } catch (error) {
       return interaction.editReply("Error: " + error.message);
@@ -88,7 +88,7 @@ async function execute(interaction, radio) {
       new ButtonBuilder().setCustomId("radio_request").setLabel("How to Request").setEmoji("🎶").setStyle(ButtonStyle.Secondary)
     );
 
-    await channel.send({ embeds: [panelEmbed()], components: [row] });
+    await channel.send({ embeds: [panelEmbed()], components: [liveButtons()] });
     return interaction.reply({ content: "The Tribulation Radio panel was posted.", ephemeral: true });
   }
 
