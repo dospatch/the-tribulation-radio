@@ -1,0 +1,20 @@
+services:
+  - type: worker
+    name: tribulation-radio
+    runtime: node
+    plan: 0.5c-512mb
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        value: "1555727698364735518"
+      - key: GUILD_ID
+        value: "932364226897539112"
+      - key: RADIO_NAME
+        value: "Tribulation Radio"
+      - key: RADIO_VOLUME
+        value: "80"
+      - key: RADIO_STREAM_URL
+        sync: false
