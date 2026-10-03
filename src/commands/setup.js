@@ -101,18 +101,22 @@ async function execute(interaction) {
   config.save();
 
   const embed = new EmbedBuilder()
-    .setTitle("Tribulation Radio")
+    .setTitle("📻 TRIBULATION RADIO • SETUP COMPLETE")
     .setDescription(
-      "Setup is complete. Configure the stream with /radio stream and start it with /radio start."
+      "🟢 **Your Tribulation Radio Discord station is ready!**\\n\\n" +
+      "The Discord side of the station has been configured. Once your radio stream is connected, use **/radio start** to begin broadcasting.\\n\\n" +
+      "🎵 **Listen Live** — Join the Tribulation Radio voice channel.\\n" +
+      "🎶 **Song Requests** — Use **/request** to submit a song.\\n" +
+      "📢 **Announcements** — Station updates will appear in the radio announcement channel."
     )
     .addFields(
-      { name: "Announcements", value: String(announcements), inline: true },
-      { name: "Now Playing", value: String(nowPlaying), inline: true },
-      { name: "Requests", value: String(requests), inline: true },
-      { name: "Voice", value: String(voice), inline: true },
-      { name: "Radio Staff", value: String(role), inline: true }
+      { name: "📢 ANNOUNCEMENTS", value: String(announcements), inline: true },
+      { name: "🎵 NOW PLAYING", value: String(nowPlaying), inline: true },
+      { name: "🎶 REQUESTS", value: String(requests), inline: true },
+      { name: "🔊 VOICE", value: String(voice), inline: true },
+      { name: "🛡️ RADIO STAFF", value: String(role), inline: true }
     )
-    .setFooter({ text: "Tribulation Radio • 24/7" })
+    .setFooter({ text: "📻 Tribulation Radio • Broadcasting 24/7" })
     .setTimestamp();
 
   await announcements.send({ embeds: [embed] });
