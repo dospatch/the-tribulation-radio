@@ -1,23 +1,14 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
+const { requestEmbed } = require("../radio/embeds");
 
 const data = new SlashCommandBuilder()
   .setName("request")
   .setDescription("Send a song request to Tribulation Radio.")
-  .addStringOption(o => o.setName("song")
-    .setDescription("Song and artist you want requested.")
-    .setRequired(true));
+  .addStringOption(o => o.setName("song").setDescription("Song and artist you want requested.").setRequired(true));
 
-async function execute(interaction, config) {
+async function execute(interaction) {
   const song = interaction.options.getString("song", true);
-
-  const embed = new EmbedBuilder()
-    .setTitle("New Song Request")
-    .addFields(
-      { name: "Requested By", value: String(interaction.user), inline: true },
-      { name: "Request", value: song, inline: false }
-    )
-    .setFooter({ text: "Tribulation Radio" })
-    .setTimestamp();
+  const embed = requestEmbed(interaction.user, song);
 
   const requestChannel = interaction.guild.channels.cache.find(
     ch => ch.name === "song-requests" && ch.isTextBased()
@@ -26,7 +17,7 @@ async function execute(interaction, config) {
   if (requestChannel) await requestChannel.send({ embeds: [embed] });
 
   return interaction.reply({
-    content: "Your request has been submitted: " + song,
+    content: requestChannel ? "🎶 Your request has been submitted: " + song : "Your request was received, but #song-requests could not be found.",
     ephemeral: true
   });
 }
