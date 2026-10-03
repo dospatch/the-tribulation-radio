@@ -6,7 +6,7 @@ const {
 
 const config = require("./config");
 const RadioPlayer = require("./radio/player");
-const { liveEmbed } = require("./radio/embeds");
+const { liveEmbed, liveButtons } = require("./radio/embeds");
 
 if (!config.token) {
   console.error("DISCORD_TOKEN is missing.");
@@ -35,7 +35,7 @@ client.once("ready", async () => {
       await radio.start();
       console.log("Auto-started Tribulation Radio.");
       const channel = client.channels.cache.find(ch => ch.name === "radio-announcements" && ch.isTextBased());
-      if (channel) await channel.send({ embeds: [liveEmbed()] }).catch(() => {});
+      if (channel) await channel.send({ embeds: [liveEmbed()], components: [liveButtons()] }).catch(() => {});
     } catch (error) {
       console.error("Auto-start failed:", error.message);
     }
@@ -78,7 +78,7 @@ client.on("interactionCreate", async interaction => {
       });
     }
 
-    if (interaction.customId === "radio_request") {
+    if (interaction.customId === "radio_listen") {\n      if (config.voiceChannelId) {\n        return interaction.reply({ content: "🔊 Join the configured **Tribulation Radio** voice channel to listen live.", ephemeral: true });\n      }\n      return interaction.reply({ content: "🔴 The radio voice channel has not been configured yet.", ephemeral: true });\n    }\n\n    if (interaction.customId === "radio_request") {
       return interaction.reply({
         content: "🎶 To request a song, use **/request** and enter the song title and artist.",
         ephemeral: true
