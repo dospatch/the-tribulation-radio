@@ -122,9 +122,8 @@ async function execute(interaction, radio, station, webPort, requestQueue) {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      if (!config.streamUrl) {
-        config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
-      }
+      config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
+      config.save();
 
       if (!station.getStatus().running) {
         await station.start();
@@ -175,9 +174,8 @@ async function execute(interaction, radio, station, webPort, requestQueue) {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      if (!config.streamUrl) {
-        config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
-      }
+      config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
+      config.save();
 
       await station.restart();
       await radio.restart();
