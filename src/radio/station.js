@@ -21,6 +21,7 @@ class StationEngine {
     this.playlist = [];
     this.index = 0;
     this.mode = "shuffle";
+    this.priorityQueue = [];
     this.restarting = false;
 
     this.ensureDirectories();
@@ -63,6 +64,7 @@ class StationEngine {
   }
 
   chooseNext() {
+    if (this.priorityQueue.length) return this.priorityQueue.shift();
     if (!this.playlist.length) return null;
 
     if (this.mode === "sequential") {
@@ -231,6 +233,37 @@ class StationEngine {
       } catch {}
       this.listeners.delete(response);
     }
+  }
+
+
+  hasStationIds() {
+    return this.scanDirectory(this.stationIdDir).length > 0;
+  }
+
+  hasAnnouncements() {
+    return this.scanDirectory(this.announcementDir).length > 0;
+  }
+
+  queueStationId() {
+    const files = this.scanDirectory(this.stationIdDir);
+    if (!files.length) return false;
+    const file = files[Math.floor(Math.random() * files.length)];
+    this.priorityQueue.push({ file, type: "station-id" });
+    return true;
+  }
+
+  queueAnnouncement() {
+    const files = this.scanDirectory(this.announcementDir);
+    if (!files.length) return false;
+    const file = files[Math.floor(Math.random() * files.length)];
+    this.priorityQueue.push({ file, type: "announcement" });
+    return true;
+  }
+
+  queueFile(file, type = "request") {
+    if (!file || !fs.existsSync(file)) return false;
+    this.priorityQueue.push({ file, type });
+    return true;
   }
 
   setVolume(value) {
