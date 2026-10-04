@@ -88,6 +88,7 @@ function renderStatusPage() {
     '<div class="card"><div class="label">Discord Bot</div><div class="value">' + (botOnline ? "🟢 Online" : "🟡 Starting") + '</div></div>' +
     '<div class="card"><div class="label">Radio</div><div class="value">' + radioState + '</div></div>' +
     '<div class="card"><div class="label">Station Engine</div><div class="value">' + (stationStatus.running ? "🟢 Broadcasting" : "🔴 Waiting") + '</div></div>' +
+    '<div class="card"><div class="label">Now Playing</div><div class="value">' + (stationStatus.currentTrack ? stationStatus.currentTrack.title : "Waiting for audio") + '</div></div>' +
     '<div class="card"><div class="label">Voice</div><div class="value">' + voiceState + '</div></div>' +
     '<div class="card"><div class="label">Stream</div><div class="value">' + streamState + '</div></div>' +
     '<div class="card"><div class="label">Volume</div><div class="value">' + status.volume + '%</div></div>' +
@@ -116,7 +117,10 @@ const webServer = http.createServer((request, response) => {
     url.pathname === "/healthz" ||
     (url.pathname === "/" && url.searchParams.get("health") === "1");
 
-  if (url.pathname === "/stream") {
+  if (
+    url.pathname === "/stream" ||
+    (url.pathname === "/" && url.searchParams.get("stream") === "1")
+  ) {
     station.addListener(response);
     return;
   }
