@@ -1,4 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const fs = require("node:fs");
+const path = require("node:path");
 const config = require("../config");
 const { canControlRadio } = require("../permissions");
 const {
@@ -77,13 +79,30 @@ const data = new SlashCommandBuilder()
     s
       .setName("panel")
       .setDescription("Post the Tribulation Radio information panel.")
+  )
+  .addSubcommand(s =>
+    s
+      .setName("requests")
+      .setDescription("View the current song request queue.")
+  )
+  .addSubcommand(s =>
+    s
+      .setName("approve")
+      .setDescription("Approve a song request.")
+      .addStringOption(o => o.setName("id").setDescription("Request ID.").setRequired(true))
+  )
+  .addSubcommand(s =>
+    s
+      .setName("reject")
+      .setDescription("Reject a song request.")
+      .addStringOption(o => o.setName("id").setDescription("Request ID.").setRequired(true))
   );
 
-async function execute(interaction, radio, station, webPort) {
+async function execute(interaction, radio, station, webPort, requestQueue) {
   const subcommand = interaction.options.getSubcommand();
 
   if (
-    !["status", "panel"].includes(subcommand) &&
+    !["status", "panel", "requests"].includes(subcommand) &&
     !canControlRadio(interaction, config)
   ) {
     return interaction.reply({
@@ -252,6 +271,47 @@ async function execute(interaction, radio, station, webPort) {
     });
   }
 
+  if (subcommand === "requests") {
+    const requests = requestQueue ? requestQueue.all(15) : [];
+    const lines = requests.length
+      ? requests.map(r => "`" + r.id + "` • " + r.status.toUpperCase() + " • " + r.song + " • <@" + r.userId + ">").join("\\n")
+      : "No song requests yet.";
+
+    return interaction.reply({
+      content: "🎶 **Tribulation Radio Request Queue**\\n\\n" + lines,
+      ephemeral: true
+    });
+  }
+
+  if (subcommand === "approve" || subcommand === "reject") {
+    const id = interaction.options.getString("id", true);
+
+    if (!requestQueue) return interaction.reply({ content: "❌ Request queue is unavailable.", ephemeral: true });
+
+    const request = subcommand === "approve" ? requestQueue.approve(id) : requestQueue.reject(id);
+    if (!request) return interaction.reply({ content: "❌ Request ID not found.", ephemeral: true });
+
+    if (subcommand === "approve") {
+      const musicDir = path.join(__dirname, "..", "..", "music");
+      const files = fs.existsSync(musicDir) ? fs.readdirSync(musicDir, { withFileTypes: true })
+        .filter(entry => entry.isFile()).map(entry => path.join(musicDir, entry.name)) : [];
+      const normalize = value => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const wanted = normalize(request.song);
+      const match = files.find(file => {
+        const name = normalize(path.basename(file, path.extname(file)));
+        return name && (name.includes(wanted) || wanted.includes(name));
+      });
+
+      if (match) {
+        station.queueFile(match, "request");
+        return interaction.reply({ content: "✅ Request approved and queued for rotation.\\n🎵 **" + request.song + "**", ephemeral: true });
+      }
+
+      return interaction.reply({ content: "✅ Request approved.\\n⚠️ No matching local audio file was found in `music/`.", ephemeral: true });
+    }
+
+    return interaction.reply({ content: "❌ Request rejected: **" + request.song + "**", ephemeral: true });
+  }
   if (subcommand === "panel") {
     const channel = interaction.guild.channels.cache.find(
       ch =>
