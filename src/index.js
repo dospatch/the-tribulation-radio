@@ -5,6 +5,7 @@ const {
 } = require("discord.js");
 
 const http = require("node:http");
+const crypto = require("node:crypto");
 
 const config = require("./config");
 const RadioPlayer = require("./radio/player");
@@ -98,6 +99,163 @@ const webPort = Number(process.env.PORT || 10431);
 const webHost = "0.0.0.0";
 const startedAt = new Date();
 
+
+const dashboardSessions = new Map();
+const DASHBOARD_PASSWORD = String(process.env.DASHBOARD_PASSWORD || "").trim();
+
+function htmlEscape(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function parseCookies(request) {
+  const header = request.headers.cookie || "";
+  const cookies = {};
+  for (const part of header.split(";")) {
+    const index = part.indexOf("=");
+    if (index === -1) continue;
+    cookies[part.slice(0, index).trim()] = decodeURIComponent(part.slice(index + 1).trim());
+  }
+  return cookies;
+}
+
+function dashboardAuthorized(request) {
+  const cookies = parseCookies(request);
+  const token = cookies.tribulation_dashboard;
+  if (!token) return false;
+  const expires = dashboardSessions.get(token);
+  if (!expires || expires < Date.now()) {
+    dashboardSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function renderDashboardLogin(message = "") {
+  return "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Tribulation Radio • Dashboard Login</title><style>" +
+    "body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090d12;color:#f5f7fa;font-family:Arial}main{width:min(92%,420px);padding:30px;border:1px solid #27313d;border-radius:20px;background:#111820;box-sizing:border-box}h1{margin-top:0}input,button{width:100%;box-sizing:border-box;padding:13px;margin-top:10px;border-radius:10px;border:1px solid #344150;background:#0b1118;color:#fff}button{cursor:pointer;background:#1d6ee8;border:0;font-weight:700}.error{color:#ff8c8c;margin-top:12px}</style></head><body><main><h1>📻 Tribulation Radio</h1><p>Station dashboard login</p><form method=\"POST\" action=\"/?dashboard=login\"><input name=\"password\" type=\"password\" placeholder=\"Dashboard password\" required><button type=\"submit\">Sign In</button></form>" +
+    (message ? "<div class=\"error\">" + htmlEscape(message) + "</div>" : "") +
+    "</main></body></html>";
+}
+
+function renderDashboard() {
+  const stationStatus = station.getStatus();
+  const radioStatus = radio.getStatus();
+  const field = (label, name, value, multiline = false) =>
+    "<label>" + htmlEscape(label) + "<" + (multiline ? "textarea" : "input") +
+    " name=\"" + name + "\" " + (multiline ? "rows=\"7\"" : "type=\"text\"") +
+    ">" + htmlEscape(value) + (multiline ? "</textarea>" : "") + "</label>";
+
+  return "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Tribulation Radio • Dashboard</title><style>" +
+    ":root{color-scheme:dark}body{margin:0;background:#090d12;color:#f5f7fa;font-family:Arial,Helvetica,sans-serif}main{width:min(1100px,94%);margin:30px auto;padding:28px;box-sizing:border-box}.top{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}h1{margin:0 0 6px}.muted{color:#9da9b6}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:20px 0}.card{padding:18px;border:1px solid #27313d;border-radius:16px;background:#111820}.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8995a3}.value{font-size:19px;font-weight:700;margin-top:6px}form.panel{padding:22px;border:1px solid #27313d;border-radius:16px;background:#111820}label{display:block;margin:15px 0;font-weight:700}input,textarea{display:block;width:100%;box-sizing:border-box;margin-top:7px;padding:12px;border-radius:10px;border:1px solid #344150;background:#0b1118;color:#fff;font:inherit}textarea{resize:vertical}button{padding:12px 18px;border:0;border-radius:10px;background:#1d6ee8;color:#fff;font-weight:700;cursor:pointer;margin:8px 8px 0 0}.secondary{background:#27313d}.notice{padding:13px 16px;border-radius:10px;background:#10251a;border:1px solid #245b38;color:#b8f1c8;margin:15px 0}.warning{padding:13px 16px;border-radius:10px;background:#2b2110;border:1px solid #66501f;color:#f4d99a;margin:15px 0}.section{margin-top:24px}.small{font-size:13px;color:#8e9aa8}a{color:#8fc2ff}</style></head><body><main>" +
+    "<div class=\"top\"><div><h1>📻 Tribulation Radio Dashboard</h1><div class=\"muted\">Edit what your Discord station panel says after deployment.</div></div><a href=\"/\">← Status</a></div>" +
+    (!DASHBOARD_PASSWORD ? "<div class=\"warning\">Dashboard is disabled because <b>DASHBOARD_PASSWORD</b> is not set in the hosting environment.</div>" : "") +
+    "<div class=\"grid\"><div class=\"card\"><div class=\"label\">Bot</div><div class=\"value\">" + (client.isReady() ? "🟢 Online" : "🟡 Starting") + "</div></div><div class=\"card\"><div class=\"label\">Radio</div><div class=\"value\">" + (radioStatus.running ? "🟢 LIVE" : "🔴 OFFLINE") + "</div></div><div class=\"card\"><div class=\"label\">Now Playing</div><div class=\"value\">" + htmlEscape(stationStatus.currentTrack?.title || "Waiting for audio") + "</div></div><div class=\"card\"><div class=\"label\">Library</div><div class=\"value\">" + stationStatus.tracks + " music tracks</div></div></div>" +
+    "<form class=\"panel\" method=\"POST\" action=\"/?dashboard=save\"><div class=\"section\"><h2>Discord Station Panel</h2>" +
+    field("Station Name", "name", config.name) +
+    field("Panel Title", "panelTitle", config.panelTitle) +
+    field("Panel Message", "panelDescription", config.panelDescription, true) +
+    field("Panel Footer", "panelFooter", config.panelFooter) +
+    "<h3>Discord Channel IDs</h3>" +
+    field("Announcements Channel ID", "announcementChannelId", config.announcementChannelId) +
+    field("Now Playing Channel ID", "statusChannelId", config.statusChannelId) +
+    field("Song Requests Channel ID", "requestChannelId", config.requestChannelId) +
+    field("Radio Chat Channel ID", "chatChannelId", config.chatChannelId) +
+    field("Voice Channel ID", "voiceChannelId", config.voiceChannelId) +
+    field("Radio Staff Role ID", "staffRoleId", config.staffRoleId) +
+    "<h3>Station</h3>" + field("Volume (0-100)", "volume", config.volume) +
+    "<button type=\"submit\">💾 Save Settings</button><button class=\"secondary\" type=\"submit\" name=\"publish\" value=\"1\">📢 Save & Publish Panel</button></form>" +
+    "<p class=\"small\">The panel message is saved and edited instead of creating a new message every time. Changes are stored in <code>data/config.json</code>.</p>" +
+    "</main></body></html>";
+}
+
+function parseFormBody(request) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.on("data", chunk => {
+      body += chunk;
+      if (body.length > 1024 * 1024) request.destroy();
+    });
+    request.on("end", () => resolve(new URLSearchParams(body)));
+    request.on("error", reject);
+  });
+}
+
+async function handleDashboard(request, response, url) {
+  if (!DASHBOARD_PASSWORD) {
+    response.writeHead(503, {"Content-Type":"text/html; charset=utf-8"});
+    response.end(renderDashboard());
+    return true;
+  }
+
+  if (request.method === "GET") {
+    if (!dashboardAuthorized(request)) {
+      response.writeHead(200, {"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
+      response.end(renderDashboardLogin());
+      return true;
+    }
+    response.writeHead(200, {"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
+    response.end(renderDashboard());
+    return true;
+  }
+
+  if (request.method === "POST" && url.searchParams.get("dashboard") === "login") {
+    const form = await parseFormBody(request);
+    if (form.get("password") !== DASHBOARD_PASSWORD) {
+      response.writeHead(401, {"Content-Type":"text/html; charset=utf-8"});
+      response.end(renderDashboardLogin("Incorrect dashboard password."));
+      return true;
+    }
+    const token = crypto.randomBytes(32).toString("hex");
+    dashboardSessions.set(token, Date.now() + 7 * 24 * 60 * 60 * 1000);
+    response.writeHead(303, {"Location":"/?dashboard=1","Set-Cookie":"tribulation_dashboard="+token+"; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict"});
+    response.end();
+    return true;
+  }
+
+  if (request.method === "POST" && url.searchParams.get("dashboard") === "save") {
+    if (!dashboardAuthorized(request)) {
+      response.writeHead(303, {"Location":"/?dashboard=1"});
+      response.end();
+      return true;
+    }
+    const form = await parseFormBody(request);
+    config.name = String(form.get("name") || "Tribulation Radio").trim().slice(0, 100);
+    config.panelTitle = String(form.get("panelTitle") || "📻 TRIBULATION RADIO • LIVE STATION").trim().slice(0, 256);
+    config.panelDescription = String(form.get("panelDescription") || "").trim().slice(0, 4000);
+    config.panelFooter = String(form.get("panelFooter") || "📻 Tribulation Radio • Broadcasting 24/7").trim().slice(0, 2048);
+    config.announcementChannelId = String(form.get("announcementChannelId") || "").trim();
+    config.statusChannelId = String(form.get("statusChannelId") || "").trim();
+    config.requestChannelId = String(form.get("requestChannelId") || "").trim();
+    config.chatChannelId = String(form.get("chatChannelId") || "").trim();
+    config.voiceChannelId = String(form.get("voiceChannelId") || "").trim();
+    config.staffRoleId = String(form.get("staffRoleId") || "").trim();
+    config.volume = Math.min(100, Math.max(0, Number(form.get("volume") || 80)));
+    config.save();
+
+    if (form.get("publish") === "1") {
+      try {
+        const { publishSetupPanel } = require("./radio/setup-panel");
+        await publishSetupPanel(client, config);
+      } catch (error) {
+        console.error("Dashboard panel publish error:", error.message);
+      }
+    }
+
+    response.writeHead(303, {"Location":"/?dashboard=1&saved=1"});
+    response.end();
+    return true;
+  }
+
+  response.writeHead(405, {"Content-Type":"text/plain; charset=utf-8","Allow":"GET, POST"});
+  response.end("Method Not Allowed");
+  return true;
+}
+
 function getWebStatus() {
   const status = radio.getStatus();
   const stationStatus = station.getStatus();
@@ -144,6 +302,7 @@ function renderStatusPage() {
     '.value{font-size:17px;font-weight:700}footer{margin-top:24px;color:#7f8a96;font-size:13px;text-align:center}' +
     '</style></head><body><main>' +
     '<h1>📻 Tribulation Radio</h1>' +
+    '<p><a href="/?dashboard=1" style="color:#8fc2ff">⚙️ Open Station Dashboard</a></p>' +
     '<p class="subtitle">Broadcasting 24/7 • Station Status</p>' +
     '<section class="hero"><div class="live">' + radioIcon + " " + radioState + '</div>' +
     '<div>' + (botOnline ? "Discord bot is online." : "Discord bot is starting.") + '</div></section>' +
@@ -165,6 +324,17 @@ const webServer = http.createServer((request, response) => {
     request.url || "/",
     "http://" + (request.headers.host || "localhost")
   );
+
+  const dashboardRequested =
+    url.pathname === "/dashboard" ||
+    (url.pathname === "/" && url.searchParams.get("dashboard") === "1") ||
+    (url.pathname === "/" && url.searchParams.get("dashboard") === "login") ||
+    (url.pathname === "/" && url.searchParams.get("dashboard") === "save");
+
+  if (dashboardRequested) {
+    await handleDashboard(request, response, url);
+    return;
+  }
 
   if (request.method !== "GET") {
     response.writeHead(405, {
