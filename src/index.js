@@ -76,7 +76,7 @@ function getWebStatus() {
     bot: client.isReady() ? "online" : "starting",
     radio: status.running ? "live" : "offline",
     voice: status.connected ? "connected" : "disconnected",
-    stream: status.streamConfigured ? "configured" : "not configured",
+    stream: stationStatus.running ? "configured" : (status.streamConfigured ? "configured" : "not configured"),
     volume: status.volume,
     station: stationStatus,
     requests: { pending: requestQueue.pending().length, approved: requestQueue.approved().length },
