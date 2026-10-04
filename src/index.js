@@ -66,6 +66,34 @@ const automation = new StationAutomation({
   channels: { announcement: null }
 });
 
+async function startStationAfterLibraryUpload() {
+  if (!station.getStatus().running && !station.everStarted && station.getStatus().tracks > 0) {
+    await station.start();
+    automation.start();
+    console.log("Auto-started Tribulation Radio after audio was detected.");
+  }
+
+  if (station.getStatus().running && config.voiceChannelId && !radio.getStatus().running) {
+    config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
+    config.save();
+    await radio.start();
+    console.log("Auto-started Discord voice after station audio was detected.");
+  }
+
+  await automation.tick();
+}
+
+station.onLibraryChange = async change => {
+  console.log(
+    "Station library:",
+    change.musicCount + " music, " +
+    change.stationIds + " station IDs, " +
+    change.announcements + " announcements"
+  );
+
+  await startStationAfterLibraryUpload();
+};
+
 const webPort = Number(process.env.PORT || 10431);
 const webHost = "0.0.0.0";
 const startedAt = new Date();
