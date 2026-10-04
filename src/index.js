@@ -319,7 +319,7 @@ function renderStatusPage() {
     '</main></body></html>';
 }
 
-const webServer = http.createServer((request, response) => {
+const webServer = http.createServer(async (request, response) => {
   const url = new URL(
     request.url || "/",
     "http://" + (request.headers.host || "localhost")
@@ -434,8 +434,8 @@ client.once("ready", async () => {
           .catch(() => {});
       }
 
-      automation.channels.announcement = config.statusChannelId
-        ? await client.channels.fetch(config.statusChannelId).catch(() => null)
+      automation.channels.announcement = config.announcementChannelId
+        ? await client.channels.fetch(config.announcementChannelId).catch(() => null)
         : null;
     }
   } catch (error) {
