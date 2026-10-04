@@ -23,10 +23,15 @@ class StationEngine {
     this.mode = "shuffle";
     this.priorityQueue = [];
     this.restarting = false;
+    this.everStarted = false;
+    this.libraryRefreshTimer = null;
+    this.watchers = [];
 
     this.ensureDirectories();
+    this.watchAudioDirectories();
 
     this.onTrackStart = null;
+    this.onLibraryChange = null;
     this.onTrackEnd = null;
   }
 
@@ -34,6 +39,61 @@ class StationEngine {
     for (const dir of [this.musicDir, this.stationIdDir, this.announcementDir]) {
       fs.mkdirSync(dir, { recursive: true });
     }
+  }
+
+  watchAudioDirectories() {
+    for (const dir of [this.musicDir, this.stationIdDir, this.announcementDir]) {
+      try {
+        const watcher = fs.watch(dir, { persistent: true }, () => {
+          this.scheduleLibraryRefresh();
+        });
+        this.watchers.push(watcher);
+      } catch (error) {
+        console.error("Station directory watch error:", error.message);
+      }
+    }
+  }
+
+  scheduleLibraryRefresh() {
+    if (this.libraryRefreshTimer) clearTimeout(this.libraryRefreshTimer);
+
+    this.libraryRefreshTimer = setTimeout(() => {
+      this.libraryRefreshTimer = null;
+
+      const previousMusicCount = this.musicPlaylist.length;
+      this.refreshPlaylist();
+
+      const status = this.getStatus();
+      console.log(
+        "Station library changed:",
+        status.tracks + " music, " +
+        status.stationIds + " station IDs, " +
+        status.announcements + " announcements"
+      );
+
+      if (typeof this.onLibraryChange === "function") {
+        Promise.resolve(
+          this.onLibraryChange({
+            previousMusicCount,
+            musicCount: status.tracks,
+            stationIds: status.stationIds,
+            announcements: status.announcements,
+            running: status.running
+          })
+        ).catch(error =>
+          console.error("Station library-change hook error:", error.message)
+        );
+      }
+    }, 750);
+  }
+
+  closeWatchers() {
+    for (const watcher of this.watchers) {
+      try {
+        watcher.close();
+      } catch {}
+    }
+    this.watchers = [];
   }
 
   scanDirectory(dir) {
@@ -80,6 +140,7 @@ class StationEngine {
     }
 
     this.running = true;
+    this.everStarted = true;
     this.startedAt = new Date();
     this.playNext();
 
