@@ -6,10 +6,10 @@ function buildSetupEmbed(config, channels, role) {
     .setDescription(config.panelDescription)
     .addFields(
       { name: "📢 ANNOUNCEMENTS", value: String(channels.announcements), inline: true },
-      { name: "🎵 NOW PLAYING", value: String(channels.nowPlaying), inline: true },
-      { name: "🎶 REQUESTS", value: String(channels.requests), inline: true },
-      { name: "🔊 VOICE", value: String(channels.voice), inline: true },
-      { name: "🛡️ RADIO STAFF", value: String(role), inline: true }
+      { name: "🎵 NOW PLAYING", value: String(channels.nowPlaying || "Not configured"), inline: true },
+      { name: "🎶 REQUESTS", value: String(channels.requests || "Not configured"), inline: true },
+      { name: "🔊 VOICE", value: String(channels.voice || "Not configured"), inline: true },
+      { name: "🛡️ RADIO STAFF", value: String(role || "Not configured"), inline: true }
     )
     .setFooter({ text: config.panelFooter })
     .setTimestamp();
