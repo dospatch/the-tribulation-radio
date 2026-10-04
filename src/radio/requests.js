@@ -68,6 +68,18 @@ class RequestQueue {
     return this.requests.find(r => r.id === id);
   }
 
+  findApprovedBySong(song) {
+    const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const wanted = normalize(song);
+    return this.requests.find(r =>
+      r.status === "approved" &&
+      normalize(r.song) &&
+      (normalize(r.song) === wanted ||
+       normalize(r.song).includes(wanted) ||
+       wanted.includes(normalize(r.song)))
+    );
+  }
+
   pending() {
     return this.requests.filter(r => r.status === "pending");
   }
