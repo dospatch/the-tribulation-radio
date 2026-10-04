@@ -252,7 +252,8 @@ client.on("interactionCreate", async interaction => {
           interaction,
           radio,
           station,
-          webPort
+          webPort,
+          requestQueue
         );
       } else if (interaction.commandName === "request") {
         await require("./commands/request").execute(
