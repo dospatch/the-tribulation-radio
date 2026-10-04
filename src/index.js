@@ -169,19 +169,19 @@ client.once("ready", async () => {
     status: "online"
   });
 
-  if (config.voiceChannelId) {
-    try {
+  try {
+    if (!station.getStatus().running) {
+      await station.start();
+      console.log("Auto-started Tribulation Radio station engine.");
+    }
+
+    if (config.voiceChannelId) {
       if (!config.streamUrl) {
         config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
       }
 
-      if (!station.getStatus().running) {
-        await station.start();
-      }
-
       await radio.start();
-
-      console.log("Auto-started Tribulation Radio station and Discord broadcast.");
+      console.log("Auto-started Discord voice broadcast.");
 
       const channel = client.channels.cache.find(
         ch =>
@@ -197,20 +197,10 @@ client.once("ready", async () => {
           })
           .catch(() => {});
       }
-    } catch (error) {
-      console.error(
-        "Auto-start failed:",
-        error.message
-      );
     }
-  } else {
-    console.log(
-      "No stream URL/voice channel configured yet."
-    );
-
-    console.log(
-      "Add your audio to music/, then use /radio start."
-    );
+  } catch (error) {
+    console.error("Auto-start failed:", error.message);
+    console.log("Add your audio to music/, then use /radio start.");
   }
 });
 
