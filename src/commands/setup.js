@@ -1,11 +1,11 @@
 const {
   SlashCommandBuilder,
   ChannelType,
-  PermissionFlagsBits,
-  EmbedBuilder
+  PermissionFlagsBits
 } = require("discord.js");
 
 const config = require("../config");
+const { publishSetupPanel } = require("../radio/setup-panel");
 
 const data = new SlashCommandBuilder()
   .setName("setup-radio")
@@ -80,49 +80,33 @@ async function execute(interaction) {
     "radio-announcements",
     "Tribulation Radio announcements."
   );
-
   const nowPlaying = await textChannel(
     "now-playing",
     "Tribulation Radio status and now-playing information."
   );
-
   const requests = await textChannel(
     "song-requests",
     "Tribulation Radio song requests."
   );
-
-  await textChannel("radio-chat", "Tribulation Radio community chat.");
-
+  const chat = await textChannel(
+    "radio-chat",
+    "Tribulation Radio community chat."
+  );
   const voice = await voiceChannel("Tribulation Radio");
 
-  config.voiceChannelId = voice.id;
+  config.categoryId = category.id;
+  config.announcementChannelId = announcements.id;
   config.statusChannelId = nowPlaying.id;
+  config.requestChannelId = requests.id;
+  config.chatChannelId = chat.id;
+  config.voiceChannelId = voice.id;
   config.staffRoleId = role.id;
   config.save();
 
-  const embed = new EmbedBuilder()
-    .setTitle("📻 TRIBULATION RADIO • SETUP COMPLETE")
-    .setDescription(
-      "🟢 **Your Tribulation Radio Discord station is ready!**\\n\\n" +
-      "The Discord side of the station has been configured. Once your radio stream is connected, use **/radio start** to begin broadcasting.\\n\\n" +
-      "🎵 **Listen Live** — Join the Tribulation Radio voice channel.\\n" +
-      "🎶 **Song Requests** — Use **/request** to submit a song.\\n" +
-      "📢 **Announcements** — Station updates will appear in the radio announcement channel."
-    )
-    .addFields(
-      { name: "📢 ANNOUNCEMENTS", value: String(announcements), inline: true },
-      { name: "🎵 NOW PLAYING", value: String(nowPlaying), inline: true },
-      { name: "🎶 REQUESTS", value: String(requests), inline: true },
-      { name: "🔊 VOICE", value: String(voice), inline: true },
-      { name: "🛡️ RADIO STAFF", value: String(role), inline: true }
-    )
-    .setFooter({ text: "📻 Tribulation Radio • Broadcasting 24/7" })
-    .setTimestamp();
-
-  await announcements.send({ embeds: [embed] });
+  await publishSetupPanel(interaction.client, config);
 
   return interaction.editReply(
-    "Tribulation Radio channels, voice channel, and Radio Staff role are ready."
+    "Tribulation Radio channels, voice channel, Radio Staff role, and the station panel are ready."
   );
 }
 
