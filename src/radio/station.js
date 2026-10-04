@@ -60,7 +60,7 @@ class StationEngine {
     if (!this.musicPlaylist.length) return null;
 
     if (this.mode === "sequential") {
-      const item = this.playlist[this.index % this.musicPlaylist.length];
+      const item = this.musicPlaylist[this.index % this.musicPlaylist.length];
       this.index = (this.index + 1) % this.musicPlaylist.length;
       return item;
     }
