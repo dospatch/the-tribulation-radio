@@ -18,7 +18,7 @@ class StationEngine {
     this.startedAt = null;
     this.trackStartedAt = null;
     this.listeners = new Set();
-    this.playlist = [];
+    this.musicPlaylist = [];
     this.index = 0;
     this.mode = "shuffle";
     this.priorityQueue = [];
@@ -46,17 +46,9 @@ class StationEngine {
   }
 
   refreshPlaylist() {
-    const music = this.scanDirectory(this.musicDir);
-    const ids = this.scanDirectory(this.stationIdDir);
-    const announcements = this.scanDirectory(this.announcementDir);
-
-    this.playlist = [];
-
-    for (const file of music) this.playlist.push({ file, type: "music" });
-    for (const file of ids) this.playlist.push({ file, type: "station-id" });
-    for (const file of announcements) this.playlist.push({ file, type: "announcement" });
-
-    return this.playlist;
+    this.musicPlaylist = this.scanDirectory(this.musicDir)
+      .map(file => ({ file, type: "music" }));
+    return this.musicPlaylist;
   }
 
   getTrackName(file) {
@@ -65,17 +57,17 @@ class StationEngine {
 
   chooseNext() {
     if (this.priorityQueue.length) return this.priorityQueue.shift();
-    if (!this.playlist.length) return null;
+    if (!this.musicPlaylist.length) return null;
 
     if (this.mode === "sequential") {
-      const item = this.playlist[this.index % this.playlist.length];
-      this.index = (this.index + 1) % this.playlist.length;
+      const item = this.playlist[this.index % this.musicPlaylist.length];
+      this.index = (this.index + 1) % this.musicPlaylist.length;
       return item;
     }
 
-    const next = Math.floor(Math.random() * this.playlist.length);
+    const next = Math.floor(Math.random() * this.musicPlaylist.length);
     this.index = next;
-    return this.playlist[next];
+    return this.musicPlaylist[next];
   }
 
   async start() {
@@ -83,7 +75,7 @@ class StationEngine {
 
     this.refreshPlaylist();
 
-    if (!this.playlist.length) {
+    if (!this.musicPlaylist.length) {
       throw new Error("No station audio found. Add your own audio files to music/, station-ids/, or announcements/.");
     }
 
@@ -124,7 +116,7 @@ class StationEngine {
 
     this.refreshPlaylist();
 
-    if (!this.playlist.length) {
+    if (!this.musicPlaylist.length) {
       this.currentTrack = null;
       setTimeout(() => this.playNext(), 5000);
       return;
@@ -283,7 +275,10 @@ class StationEngine {
             startedAt: this.trackStartedAt?.toISOString() || null
           }
         : null,
-      tracks: this.playlist.length,
+      tracks: this.musicPlaylist.length,
+      stationIds: this.scanDirectory(this.stationIdDir).length,
+      announcements: this.scanDirectory(this.announcementDir).length,
+      queuedPriority: this.priorityQueue.length,
       listeners: this.listeners.size,
       volume: this.volume,
       mode: this.mode,
