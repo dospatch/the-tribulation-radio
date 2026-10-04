@@ -79,7 +79,7 @@ const data = new SlashCommandBuilder()
       .setDescription("Post the Tribulation Radio information panel.")
   );
 
-async function execute(interaction, radio) {
+async function execute(interaction, radio, station, webPort) {
   const subcommand = interaction.options.getSubcommand();
 
   if (
@@ -103,6 +103,14 @@ async function execute(interaction, radio) {
     await interaction.deferReply({ ephemeral: true });
 
     try {
+      if (!config.streamUrl) {
+        config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
+      }
+
+      if (!station.getStatus().running) {
+        await station.start();
+      }
+
       await radio.start();
 
       if (announcementChannel) {
@@ -128,6 +136,7 @@ async function execute(interaction, radio) {
 
   if (subcommand === "stop") {
     radio.stop();
+    station.stop();
 
     if (announcementChannel) {
       await announcementChannel
@@ -147,6 +156,11 @@ async function execute(interaction, radio) {
     await interaction.deferReply({ ephemeral: true });
 
     try {
+      if (!config.streamUrl) {
+        config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
+      }
+
+      await station.restart();
       await radio.restart();
 
       return interaction.editReply(
@@ -168,6 +182,9 @@ async function execute(interaction, radio) {
     );
 
     radio.setVolume(level);
+    station.setVolume(level);
+    config.volume = level;
+    config.save();
 
     return interaction.reply({
       content:
@@ -281,10 +298,19 @@ async function execute(interaction, radio) {
       },
       {
         name: "🎵 STREAM",
-        value: status.streamConfigured
-          ? "🟢 Configured"
-          : "🟡 Not configured",
+        value: station.getStatus().running
+          ? "🟢 Tribulation Radio Engine"
+          : (status.streamConfigured
+            ? "🟢 Configured"
+            : "🟡 Waiting for station audio"),
         inline: true
+      },
+      {
+        name: "🎶 NOW PLAYING",
+        value: station.getStatus().currentTrack
+          ? station.getStatus().currentTrack.title.slice(0, 1024)
+          : "Nothing playing",
+        inline: false
       },
       {
         name: "🔊 VOLUME",
