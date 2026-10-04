@@ -9,6 +9,8 @@ const http = require("node:http");
 const config = require("./config");
 const RadioPlayer = require("./radio/player");
 const StationEngine = require("./radio/station");
+const RequestQueue = require("./radio/requests");
+const StationAutomation = require("./radio/automation");
 const path = require("node:path");
 const { liveEmbed, liveButtons } = require("./radio/embeds");
 
@@ -25,11 +27,39 @@ const client = new Client({
 });
 
 const radio = new RadioPlayer(client, config);
+const requestQueue = new RequestQueue(path.join(__dirname, "..", "data", "requests.json"));
+
 const station = new StationEngine({
   musicDir: path.join(__dirname, "..", "music"),
   stationIdDir: path.join(__dirname, "..", "station-ids"),
   announcementDir: path.join(__dirname, "..", "announcements"),
   volume: config.volume
+});
+
+station.onTrackStart = async track => {
+  const channel = client.channels.cache.find(
+    ch => ch.name === "now-playing" && ch.isTextBased()
+  );
+  if (channel) {
+    await channel.send({
+      embeds: [{
+        title: "🎵 NOW PLAYING",
+        description: "**" + track.title + "**",
+        fields: [
+          { name: "📻 TYPE", value: track.type, inline: true },
+          { name: "🟢 STATUS", value: "LIVE • 24/7", inline: true }
+        ],
+        footer: { text: "📻 Tribulation Radio • Broadcasting 24/7" },
+        timestamp: new Date().toISOString()
+      }]
+    }).catch(() => {});
+  }
+};
+
+const automation = new StationAutomation({
+  station,
+  requestQueue,
+  channels: { announcement: null }
 });
 
 const webPort = Number(process.env.PORT || 10431);
@@ -49,6 +79,7 @@ function getWebStatus() {
     stream: status.streamConfigured ? "configured" : "not configured",
     volume: status.volume,
     station: stationStatus,
+    requests: { pending: requestQueue.pending().length, approved: requestQueue.approved().length },
     uptimeSeconds: Math.floor(process.uptime()),
     startedAt: startedAt.toISOString(),
     timestamp: new Date().toISOString()
@@ -176,6 +207,7 @@ client.once("ready", async () => {
   try {
     if (!station.getStatus().running) {
       await station.start();
+      automation.start();
       console.log("Auto-started Tribulation Radio station engine.");
     }
 
@@ -201,6 +233,10 @@ client.once("ready", async () => {
           })
           .catch(() => {});
       }
+
+      automation.channels.announcement = client.channels.cache.find(
+        ch => ch.name === "radio-announcements" && ch.isTextBased()
+      ) || null;
     }
   } catch (error) {
     console.error("Auto-start failed:", error.message);
@@ -221,7 +257,8 @@ client.on("interactionCreate", async interaction => {
       } else if (interaction.commandName === "request") {
         await require("./commands/request").execute(
           interaction,
-          config
+          config,
+          requestQueue
         );
       } else if (interaction.commandName === "setup-radio") {
         await require("./commands/setup").execute(
