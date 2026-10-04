@@ -37,9 +37,13 @@ const station = new StationEngine({
 });
 
 station.onTrackStart = async track => {
-  const channel = client.channels.cache.find(
-    ch => ch.name === "now-playing" && ch.isTextBased()
-  );
+  if (track.type === "request") {
+    const request = requestQueue.findApprovedBySong(track.title);
+    if (request) requestQueue.markPlayed(request.id);
+  }
+  const channel = config.statusChannelId
+    ? await client.channels.fetch(config.statusChannelId).catch(() => null)
+    : null;
   if (channel) {
     await channel.send({
       embeds: [{
@@ -219,11 +223,9 @@ client.once("ready", async () => {
       await radio.start();
       console.log("Auto-started Discord voice broadcast.");
 
-      const channel = client.channels.cache.find(
-        ch =>
-          ch.name === "radio-announcements" &&
-          ch.isTextBased()
-      );
+      const channel = config.statusChannelId
+        ? await client.channels.fetch(config.statusChannelId).catch(() => null)
+        : null;
 
       if (channel) {
         await channel
@@ -234,9 +236,9 @@ client.once("ready", async () => {
           .catch(() => {});
       }
 
-      automation.channels.announcement = client.channels.cache.find(
-        ch => ch.name === "radio-announcements" && ch.isTextBased()
-      ) || null;
+      automation.channels.announcement = config.statusChannelId
+        ? await client.channels.fetch(config.statusChannelId).catch(() => null)
+        : null;
     }
   } catch (error) {
     console.error("Auto-start failed:", error.message);
