@@ -8,6 +8,8 @@ const http = require("node:http");
 
 const config = require("./config");
 const RadioPlayer = require("./radio/player");
+const StationEngine = require("./radio/station");
+const path = require("node:path");
 const { liveEmbed, liveButtons } = require("./radio/embeds");
 
 if (!config.token) {
@@ -23,6 +25,12 @@ const client = new Client({
 });
 
 const radio = new RadioPlayer(client, config);
+const station = new StationEngine({
+  musicDir: path.join(__dirname, "..", "music"),
+  stationIdDir: path.join(__dirname, "..", "station-ids"),
+  announcementDir: path.join(__dirname, "..", "announcements"),
+  volume: config.volume
+});
 
 const webPort = Number(process.env.PORT || 10431);
 const webHost = "0.0.0.0";
@@ -30,6 +38,7 @@ const startedAt = new Date();
 
 function getWebStatus() {
   const status = radio.getStatus();
+  const stationStatus = station.getStatus();
 
   return {
     service: "Tribulation Radio",
@@ -39,6 +48,7 @@ function getWebStatus() {
     voice: status.connected ? "connected" : "disconnected",
     stream: status.streamConfigured ? "configured" : "not configured",
     volume: status.volume,
+    station: stationStatus,
     uptimeSeconds: Math.floor(process.uptime()),
     startedAt: startedAt.toISOString(),
     timestamp: new Date().toISOString()
@@ -47,11 +57,12 @@ function getWebStatus() {
 
 function renderStatusPage() {
   const status = radio.getStatus();
+  const stationStatus = station.getStatus();
   const botOnline = client.isReady();
   const radioState = status.running ? "LIVE" : "OFFLINE";
   const radioIcon = status.running ? "🟢" : "🔴";
   const voiceState = status.connected ? "Connected" : "Disconnected";
-  const streamState = status.streamConfigured ? "Configured" : "Waiting for stream";
+  const streamState = stationStatus.running ? "Tribulation Radio Engine" : (status.streamConfigured ? "External stream" : "Waiting for station audio");
 
   return "<!doctype html>" +
     '<html lang="en"><head>' +
@@ -76,6 +87,7 @@ function renderStatusPage() {
     '<section class="grid">' +
     '<div class="card"><div class="label">Discord Bot</div><div class="value">' + (botOnline ? "🟢 Online" : "🟡 Starting") + '</div></div>' +
     '<div class="card"><div class="label">Radio</div><div class="value">' + radioState + '</div></div>' +
+    '<div class="card"><div class="label">Station Engine</div><div class="value">' + (stationStatus.running ? "🟢 Broadcasting" : "🔴 Waiting") + '</div></div>' +
     '<div class="card"><div class="label">Voice</div><div class="value">' + voiceState + '</div></div>' +
     '<div class="card"><div class="label">Stream</div><div class="value">' + streamState + '</div></div>' +
     '<div class="card"><div class="label">Volume</div><div class="value">' + status.volume + '%</div></div>' +
@@ -103,6 +115,11 @@ const webServer = http.createServer((request, response) => {
     url.pathname === "/health" ||
     url.pathname === "/healthz" ||
     (url.pathname === "/" && url.searchParams.get("health") === "1");
+
+  if (url.pathname === "/stream") {
+    station.addListener(response);
+    return;
+  }
 
   if (healthRequested) {
     response.writeHead(200, {
@@ -152,11 +169,19 @@ client.once("ready", async () => {
     status: "online"
   });
 
-  if (config.streamUrl && config.voiceChannelId) {
+  if (config.voiceChannelId) {
     try {
+      if (!config.streamUrl) {
+        config.streamUrl = "http://127.0.0.1:" + webPort + "/stream";
+      }
+
+      if (!station.getStatus().running) {
+        await station.start();
+      }
+
       await radio.start();
 
-      console.log("Auto-started Tribulation Radio.");
+      console.log("Auto-started Tribulation Radio station and Discord broadcast.");
 
       const channel = client.channels.cache.find(
         ch =>
@@ -184,7 +209,7 @@ client.once("ready", async () => {
     );
 
     console.log(
-      "Use /setup-radio, then /radio stream and /radio start."
+      "Add your audio to music/, then use /radio start."
     );
   }
 });
@@ -195,7 +220,9 @@ client.on("interactionCreate", async interaction => {
       if (interaction.commandName === "radio") {
         await require("./commands/radio").execute(
           interaction,
-          radio
+          radio,
+          station,
+          webPort
         );
       } else if (interaction.commandName === "request") {
         await require("./commands/request").execute(
