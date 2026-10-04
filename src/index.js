@@ -4,6 +4,8 @@ const {
   ActivityType
 } = require("discord.js");
 
+const http = require("node:http");
+
 const config = require("./config");
 const RadioPlayer = require("./radio/player");
 const { liveEmbed, liveButtons } = require("./radio/embeds");
@@ -21,6 +23,113 @@ const client = new Client({
 });
 
 const radio = new RadioPlayer(client, config);
+
+const webPort = Number(process.env.PORT || 10431);
+const webHost = "0.0.0.0";
+const startedAt = new Date();
+
+function getWebStatus() {
+  const status = radio.getStatus();
+
+  return {
+    service: "Tribulation Radio",
+    status: "online",
+    bot: client.isReady() ? "online" : "starting",
+    radio: status.running ? "live" : "offline",
+    voice: status.connected ? "connected" : "disconnected",
+    stream: status.streamConfigured ? "configured" : "not configured",
+    volume: status.volume,
+    uptimeSeconds: Math.floor(process.uptime()),
+    startedAt: startedAt.toISOString(),
+    timestamp: new Date().toISOString()
+  };
+}
+
+function renderStatusPage() {
+  const status = radio.getStatus();
+  const botOnline = client.isReady();
+  const radioState = status.running ? "LIVE" : "OFFLINE";
+  const radioIcon = status.running ? "🟢" : "🔴";
+  const voiceState = status.connected ? "Connected" : "Disconnected";
+  const streamState = status.streamConfigured ? "Configured" : "Waiting for stream";
+
+  return "<!doctype html>" +
+    '<html lang="en"><head>' +
+    '<meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<meta http-equiv="refresh" content="30">' +
+    '<title>Tribulation Radio • Status</title>' +
+    '<style>' +
+    ':root{color-scheme:dark;font-family:Arial,Helvetica,sans-serif}' +
+    'body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090d12;color:#f5f7fa}' +
+    'main{width:min(92%,720px);box-sizing:border-box;padding:32px;border:1px solid #27313d;border-radius:20px;background:#111820;box-shadow:0 20px 60px rgba(0,0,0,.35)}' +
+    'h1{margin:0 0 8px;font-size:32px}.subtitle{margin:0 0 28px;color:#aeb8c4}' +
+    '.hero{padding:22px;border-radius:16px;background:#0b1118;border:1px solid #27313d;margin-bottom:20px}' +
+    '.live{font-size:24px;font-weight:700;margin-bottom:8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}' +
+    '.card{padding:16px;border-radius:14px;background:#0b1118;border:1px solid #27313d}.label{color:#8e9aa8;font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}' +
+    '.value{font-size:17px;font-weight:700}footer{margin-top:24px;color:#7f8a96;font-size:13px;text-align:center}' +
+    '</style></head><body><main>' +
+    '<h1>📻 Tribulation Radio</h1>' +
+    '<p class="subtitle">Broadcasting 24/7 • Station Status</p>' +
+    '<section class="hero"><div class="live">' + radioIcon + " " + radioState + '</div>' +
+    '<div>' + (botOnline ? "Discord bot is online." : "Discord bot is starting.") + '</div></section>' +
+    '<section class="grid">' +
+    '<div class="card"><div class="label">Discord Bot</div><div class="value">' + (botOnline ? "🟢 Online" : "🟡 Starting") + '</div></div>' +
+    '<div class="card"><div class="label">Radio</div><div class="value">' + radioState + '</div></div>' +
+    '<div class="card"><div class="label">Voice</div><div class="value">' + voiceState + '</div></div>' +
+    '<div class="card"><div class="label">Stream</div><div class="value">' + streamState + '</div></div>' +
+    '<div class="card"><div class="label">Volume</div><div class="value">' + status.volume + '%</div></div>' +
+    '<div class="card"><div class="label">Uptime</div><div class="value">' + Math.floor(process.uptime() / 60) + ' min</div></div>' +
+    '</section><footer>📻 Tribulation Radio • Broadcasting 24/7</footer>' +
+    '</main></body></html>';
+}
+
+const webServer = http.createServer((request, response) => {
+  const url = new URL(
+    request.url || "/",
+    "http://" + (request.headers.host || "localhost")
+  );
+
+  if (request.method !== "GET") {
+    response.writeHead(405, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Allow": "GET"
+    });
+    response.end("Method Not Allowed");
+    return;
+  }
+
+  if (url.pathname === "/health") {
+    response.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    response.end(JSON.stringify(getWebStatus(), null, 2));
+    return;
+  }
+
+  if (url.pathname === "/" || url.pathname === "/status") {
+    response.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    response.end(renderStatusPage());
+    return;
+  }
+
+  response.writeHead(404, {
+    "Content-Type": "text/plain; charset=utf-8"
+  });
+  response.end("Not Found");
+});
+
+webServer.on("error", error => {
+  console.error("Web status server error:", error.message);
+});
+
+webServer.listen(webPort, webHost, () => {
+  console.log("Tribulation Radio web status server listening on " + webHost + ":" + webPort);
+});
 
 client.once("ready", async () => {
   console.log("==============================================");
