@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "deploy": "node src/deploy-commands.js"
+    "deploy": "node src/deploy-commands.js",
+    "generate-test-track": "node tools/generate-test-track.js"
   },
   "engines": {
     "node": ">=20"
