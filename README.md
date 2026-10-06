@@ -1,4 +1,4 @@
-# Tribulation Radio Discord Bot
+# 📻 Tribulation Radio Discord Bot
 
 Tribulation Radio is a 24/7 Discord radio station built for Discord voice playback with FFmpeg, automatic reconnects, station automation, song requests, persistent configuration, and a secure web dashboard.
 
