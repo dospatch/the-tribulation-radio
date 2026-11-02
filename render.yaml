@@ -1,20 +1,16 @@
 services:
-  - type: worker
-    name: tribulation-radio
+  - type: web
+    name: tribulation-radio-status
     runtime: node
-    plan: 0.5c-512mb
+    plan: free
+    region: ohio
+    rootDir: render-dashboard
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
     envVars:
-      - key: DISCORD_TOKEN
-        sync: false
-      - key: CLIENT_ID
-        value: "1555727698364735518"
-      - key: GUILD_ID
-        value: "932364226897539112"
-      - key: RADIO_NAME
-        value: "Tribulation Radio"
-      - key: RADIO_VOLUME
-        value: "80"
-      - key: RADIO_STREAM_URL
-        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: RADIO_STATUS_URL
+        value: https://tribulationradio.freesrv.com/?health=1
